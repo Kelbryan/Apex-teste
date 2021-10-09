@@ -39,6 +39,8 @@ CREATE TABLE  "USUARIO"
 	"NOME" VARCHAR2(100) NOT NULL ENABLE, 
 	"SENHA" VARCHAR2(100) NOT NULL ENABLE, 
 	 CONSTRAINT "USUARIO_PK" PRIMARY KEY ("USUARIO_ID")
+  USING INDEX  ENABLE, 
+	 CONSTRAINT "USUARIO_CON_NOME_UNICO" UNIQUE ("NOME")
   USING INDEX  ENABLE
    )
 /
@@ -110,6 +112,8 @@ CREATE UNIQUE INDEX  "MENU_PK" ON  "MENU" ("MENU_ID")
 /
 CREATE UNIQUE INDEX  "PAGINA_PK" ON  "PAGINA" ("PAGINA_ID")
 /
+CREATE UNIQUE INDEX  "USUARIO_CON_NOME_UNICO" ON  "USUARIO" ("NOME")
+/
 CREATE UNIQUE INDEX  "USUARIO_GRUPO_PK" ON  "USUARIO_GRUPO" ("USUARIO_ID", "GRUPO_ID")
 /
 CREATE UNIQUE INDEX  "USUARIO_PK" ON  "USUARIO" ("USUARIO_ID")
@@ -120,25 +124,29 @@ AS
   FUNCTION permitir_acesso    (p_username IN VARCHAR2, p_page_id  IN NUMBER)   RETURN BOOLEAN;
 END;
 /
-CREATE OR REPLACE EDITIONABLE PACKAGE BODY  "PKG_AUTH_SCHEMES" 
+CREATE OR REPLACE EDITIONABLE PACKAGE BODY  "PKG_AUTH_SCHEMES" pkg_auth_schemes
 AS
   FUNCTION autenticar_usuario (p_username IN VARCHAR2, p_password IN VARCHAR2)
   RETURN BOOLEAN
   IS
     CURSOR c_usuario
     IS
-    SELECT usuario_id
+    SELECT usuario_id, senha
       FROM usuario
-     WHERE upper (nome) = upper (p_username)
-       AND senha        = p_password;
+     WHERE upper (nome) = upper (p_username);
     l_usuario_id usuario.usuario_id%TYPE;
+    l_senha      usuario.senha%TYPE;
     l_found      BOOLEAN;
   BEGIN
     OPEN c_usuario;
-    FETCH c_usuario INTO l_usuario_id;
+    FETCH c_usuario INTO l_usuario_id, l_senha;
     l_found := c_usuario%FOUND;
     CLOSE c_usuario;
-    RETURN l_found;
+    IF l_found AND (l_senha = p_password) THEN
+      RETURN true;
+    ELSE
+      RETURN false;
+    END IF;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
       RETURN false;
@@ -168,7 +176,7 @@ AS
     WHEN OTHERS THEN
       RETURN false;
   END permitir_acesso;
-END pkg_auth_schemes;
+END ;
 /
 
  CREATE SEQUENCE   "GRUPO_SEQ"  MINVALUE 1 MAXVALUE 9999999999999999999999999999 INCREMENT BY 1 START WITH 41 CACHE 20 NOORDER  NOCYCLE  NOKEEP  NOSCALE  GLOBAL
